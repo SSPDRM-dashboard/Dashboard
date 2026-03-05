@@ -1,91 +1,242 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Google Sheet Dashboard</title>
+<title>Police Task Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; }
-  h1 { text-align: center; }
-  #charts { display: flex; flex-wrap: wrap; gap: 40px; justify-content: center; }
-  canvas { background: #f8f8f8; padding: 20px; border-radius: 8px; }
-  table { border-collapse: collapse; width: 100%; margin-top: 40px; }
-  th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-  th { background-color: #4CAF50; color: white; }
+body{
+font-family:Arial;
+margin:20px;
+background:#f4f6f8;
+}
+
+h1{
+text-align:center;
+}
+
+#controls{
+text-align:center;
+margin-bottom:30px;
+}
+
+select{
+padding:8px;
+font-size:16px;
+}
+
+#charts{
+display:flex;
+justify-content:center;
+gap:40px;
+flex-wrap:wrap;
+}
+
+canvas{
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 2px 8px rgba(0,0,0,0.1);
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:40px;
+background:white;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:8px;
+text-align:center;
+}
+
+th{
+background:#2c7be5;
+color:white;
+}
 </style>
 </head>
+
 <body>
 
-<h1>Google Sheet Dashboard</h1>
+<h1>Dashboard Penugasan Anggota</h1>
 
-<div id="charts">
-  <canvas id="barChart" width="400" height="300"></canvas>
-  <canvas id="pieChart" width="400" height="300"></canvas>
+<div id="controls">
+Filter Daerah :
+<select id="districtFilter">
+<option value="All">All</option>
+</select>
 </div>
 
-<h2>Data Table</h2>
+<div id="charts">
+<canvas id="districtChart" width="400" height="300"></canvas>
+<canvas id="genderChart" width="400" height="300"></canvas>
+</div>
+
+<h2>Senarai Data</h2>
+
 <table id="dataTable">
-  <thead></thead>
-  <tbody></tbody>
+<thead></thead>
+<tbody></tbody>
 </table>
 
 <script>
-const SHEET_URL = "https://script.google.com/macros/s/AKfycby4qJVo5hbT-KS8PShRtSJv7XErRg1R0cJ4wuDNBnhpRAc-wgejZPyHHU-xTgIvGqTe/exec"
 
-// Fetch data from Google Sheet
-fetch(SHEET_URL)
-  .then(response => response.json())
-  .then(data => {
-    if(data.length === 0) return;
+const API_URL="https://script.google.com/macros/s/AKfycbzfjAcjviKkcELTJOTebU8LsD_Sy5x0QBobU-ypMAM/dev";
 
-    // Extract headers and populate table
-    const headers = Object.keys(data[0]);
-    const thead = document.querySelector("#dataTable thead");
-    thead.innerHTML = "<tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr>";
+let rawData=[];
 
-    const tbody = document.querySelector("#dataTable tbody");
-    data.forEach(row => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = headers.map(h => `<td>${row[h]}</td>`).join("");
-      tbody.appendChild(tr);
-    });
+async function loadData(){
 
-    // Example for charts: use first two columns
-    const labels = data.map(item => item[headers[0]]);
-    const values = data.map(item => Number(item[headers[1]]));
+const res=await fetch(API_URL);
+const data=await res.json();
 
-    // Bar Chart
-    new Chart(document.getElementById("barChart"), {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: headers[1],
-          data: values,
-          backgroundColor: 'rgba(75, 192, 192, 0.6)',
-          borderColor: 'rgba(75, 192, 192, 1)',
-          borderWidth: 1
-        }]
-      },
-      options: { responsive: true, plugins: { legend: { display: false } } }
-    });
+rawData=data;
 
-    // Pie Chart
-    new Chart(document.getElementById("pieChart"), {
-      type: 'pie',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: headers[1],
-          data: values,
-          backgroundColor: labels.map(() => `hsl(${Math.random()*360},70%,60%)`)
-        }]
-      },
-      options: { responsive: true }
-    });
-  })
-  .catch(err => console.error("Error fetching data:", err));
+populateFilter();
+
+renderDashboard();
+
+}
+
+function populateFilter(){
+
+const select=document.getElementById("districtFilter");
+
+const daerah=[...new Set(rawData.map(d=>d["SILA PILIH DAERAH YANG BERTUGAS"]))];
+
+daerah.forEach(d=>{
+let option=document.createElement("option");
+option.value=d;
+option.text=d;
+select.appendChild(option);
+});
+
+}
+
+function renderDashboard(){
+
+let filter=document.getElementById("districtFilter").value;
+
+let data=rawData;
+
+if(filter!="All"){
+
+data=rawData.filter(d=>d["SILA PILIH DAERAH YANG BERTUGAS"]==filter);
+
+}
+
+createDistrictChart(data);
+
+createGenderChart(data);
+
+createTable(data);
+
+}
+
+function createDistrictChart(data){
+
+let count={};
+
+data.forEach(d=>{
+
+let daerah=d["SILA PILIH DAERAH YANG BERTUGAS"];
+
+count[daerah]=(count[daerah]||0)+1;
+
+});
+
+let labels=Object.keys(count);
+let values=Object.values(count);
+
+if(window.districtChart)window.districtChart.destroy();
+
+window.districtChart=new Chart(document.getElementById("districtChart"),{
+
+type:"bar",
+
+data:{
+labels:labels,
+datasets:[{
+label:"Jumlah Penugasan",
+data:values
+}]
+},
+
+options:{
+responsive:true
+}
+
+});
+
+}
+
+function createGenderChart(data){
+
+let count={};
+
+data.forEach(d=>{
+
+let gender=d["JANTINA"];
+
+count[gender]=(count[gender]||0)+1;
+
+});
+
+let labels=Object.keys(count);
+let values=Object.values(count);
+
+if(window.genderChart)window.genderChart.destroy();
+
+window.genderChart=new Chart(document.getElementById("genderChart"),{
+
+type:"pie",
+
+data:{
+labels:labels,
+datasets:[{
+data:values
+}]
+},
+
+options:{
+responsive:true
+}
+
+});
+
+}
+
+function createTable(data){
+
+const tableHead=document.querySelector("#dataTable thead");
+const tableBody=document.querySelector("#dataTable tbody");
+
+let headers=Object.keys(data[0]);
+
+tableHead.innerHTML="<tr>"+headers.map(h=>"<th>"+h+"</th>").join("")+"</tr>";
+
+tableBody.innerHTML="";
+
+data.forEach(row=>{
+
+let tr=document.createElement("tr");
+
+tr.innerHTML=headers.map(h=>"<td>"+row[h]+"</td>").join("");
+
+tableBody.appendChild(tr);
+
+});
+
+}
+
+document.getElementById("districtFilter").addEventListener("change",renderDashboard);
+
+loadData();
+
 </script>
 
 </body>
