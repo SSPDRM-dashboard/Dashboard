@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google Sheet Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  h1 { text-align: center; }
+  #charts { display: flex; flex-wrap: wrap; gap: 40px; justify-content: center; }
+  canvas { background: #f8f8f8; padding: 20px; border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 40px; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+  th { background-color: #4CAF50; color: white; }
+</style>
+</head>
+<body>
+
+<h1>Google Sheet Dashboard</h1>
+
+<div id="charts">
+  <canvas id="barChart" width="400" height="300"></canvas>
+  <canvas id="pieChart" width="400" height="300"></canvas>
+</div>
+
+<h2>Data Table</h2>
+<table id="dataTable">
+  <thead></thead>
+  <tbody></tbody>
+</table>
+
+<script>
+const SHEET_URL = "https://script.google.com/macros/s/AKfycby4qJVo5hbT-KS8PShRtSJv7XErRg1R0cJ4wuDNBnhpRAc-wgejZPyHHU-xTgIvGqTe/exec"
+
+// Fetch data from Google Sheet
+fetch(SHEET_URL)
+  .then(response => response.json())
+  .then(data => {
+    if(data.length === 0) return;
+
+    // Extract headers and populate table
+    const headers = Object.keys(data[0]);
+    const thead = document.querySelector("#dataTable thead");
+    thead.innerHTML = "<tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr>";
+
+    const tbody = document.querySelector("#dataTable tbody");
+    data.forEach(row => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = headers.map(h => `<td>${row[h]}</td>`).join("");
+      tbody.appendChild(tr);
+    });
+
+    // Example for charts: use first two columns
+    const labels = data.map(item => item[headers[0]]);
+    const values = data.map(item => Number(item[headers[1]]));
+
+    // Bar Chart
+    new Chart(document.getElementById("barChart"), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: headers[1],
+          data: values,
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+
+    // Pie Chart
+    new Chart(document.getElementById("pieChart"), {
+      type: 'pie',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: headers[1],
+          data: values,
+          backgroundColor: labels.map(() => `hsl(${Math.random()*360},70%,60%)`)
+        }]
+      },
+      options: { responsive: true }
+    });
+  })
+  .catch(err => console.error("Error fetching data:", err));
+</script>
+
+</body>
+</html>
